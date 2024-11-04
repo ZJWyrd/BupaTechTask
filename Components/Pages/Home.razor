@@ -1,0 +1,93 @@
+﻿@page "/"
+@using System.Text.RegularExpressions
+@using System.Net.Http.Headers
+@using System.Text
+
+<PageTitle>Home</PageTitle>
+
+<h1>Vehicle Info Getter</h1>
+
+@rendermode InteractiveServer
+
+<EditForm method="post" Model="vehicleData" OnValidSubmit="CheckReg" FormName="idkbuh" Enhance>
+    <DataAnnotationsValidator/>
+    <label for="Registration" class="form-label">Registration:</label>
+    <InputText id="Registration" @bind-Value="vehicleData.Registration" class="form-control"/>
+     <ValidationMessage For="() => vehicleData.Registration" class="text-danger"/>
+    <button type="submit" class="btn btn-primary">Search</button>
+</EditForm>
+<p/>
+<p/>
+<p/>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Reg</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach(var r in datas)
+        {
+            <tr>
+                <td>@r.Registration</td>
+                <td>@r.Make</td>
+                <td>@r.Model</td>
+                <td>@r.Colour</td>
+                <td>@r.MOTExpiry</td>
+                <td>@r.LastMileage</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code
+{
+    [SupplyParameterFromForm]
+    public Models.VehicleData vehicleData { get; set; } = new();
+    public HttpClient httpClient = new HttpClient();
+    public string errorMessage;
+
+    List<Models.VehicleData> datas = new List<Models.VehicleData>();
+
+    private async Task CheckReg()
+    {
+        await FetchCarInfo();
+    }
+
+    public async Task FetchCarInfo()
+    {
+        // this the only bit that change every time, if this dont work use RequestMessage stuff
+        //httpClient.BaseAddress = new Uri(String.Format("https://beta.check-mot.service.gov.uk/trade/vehicles/mot-tests?registration={0}", vehicleData.Registration.ToUpperInvariant()));
+
+        using (var req = new HttpRequestMessage())
+        {
+            req.Method = HttpMethod.Get;
+            req.RequestUri = new Uri(String.Format("https://beta.check-mot.service.gov.uk/trade/vehicles/mot-tests?registration={0}", vehicleData.Registration.ToUpperInvariant()));
+            req.Headers.Add("x-api-key", "fZi8YcjrZN1cGkQeZP7Uaa4rTxua8HovaswPuIno");
+
+            var response = await httpClient.SendAsync(req);
+            if (response.IsSuccessStatusCode)
+            {
+                // I could never get it to get to not return 404 so cant test this proper
+                // I even downloaded Postman to test the api call and still, 404.
+                    // Error Message : "No MOT Tests found with vehicle registration : XX10ABC"
+                string content = await response.Content.ReadAsStringAsync();
+
+                // pseudocode time
+                /*
+                 * read content, as json if thats how it returns
+                 * assign each value to the values in Models.VehicleData
+                 * add to the datas list so it all displays
+                 */
+
+                datas.Add(new Models.VehicleData { Registration = vehicleData.Registration, Colour = "Ok", LastMileage = 200, Make = "Ok", Model = "Ok" });
+
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                datas.Add(new Models.VehicleData { Registration = vehicleData.Registration, Colour = "404", LastMileage = 404, Make = "404", Model = "404"});
+            }
+        }
+
+    }
+}
